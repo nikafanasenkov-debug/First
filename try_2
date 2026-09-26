@@ -1,0 +1,66 @@
+
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+N = 100                   
+DENSITY = 0.3              
+SEED = 42                 
+INTERVAL = 40                       
+GIF_PATH = "game_of_life.gif"
+FPS = 25                  
+
+def random_field(shape, density=0.3, seed=None):
+    rng = np.random.default_rng(seed)
+    return (rng.random(shape) < density).astype(np.int8)
+def count_neighbors(field):
+    neighbors = np.zeros_like(field, dtype=int)
+    for di in (-1, 0, 1):
+        for dj in (-1, 0, 1):
+            if di == 0 and dj == 0:
+                continue  # саму клетку не учитываем
+            neighbors += np.roll(np.roll(field, di, axis=0), dj, axis=1)
+
+    return neighbors
+def step(field):
+    neighbors = count_neighbors(field)
+
+    born = (field == 0) & (neighbors == 3)
+    survive = (field == 1) & ((neighbors == 2) | (neighbors == 3))
+    new_field = (born | survive).astype(np.int8)
+    return new_field
+
+def main():
+    grid = random_field((N, N), density=DENSITY, seed=SEED)
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.set_title("Игра «Жизнь»")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    mat = ax.imshow(grid, cmap="binary", interpolation="nearest",
+                    vmin=0, vmax=1)
+    state = {"tick": 0}
+
+    def update(frame):
+        nonlocal grid
+        grid = step(grid)
+        mat.set_data(grid)
+        state["tick"] += 1
+        ax.set_title(f"Игра «Жизнь» — такт {state['tick']}")
+        return [mat]
+
+    ani = animation.FuncAnimation(
+        fig, update,
+        interval=INTERVAL,
+        save_count=1000,
+        blit=False,
+    )
+
+    print(f"Сохранение анимации в {GIF_PATH} ...")
+    ani.save(GIF_PATH, writer="pillow", fps=FPS)
+    print("Готово.")
+
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
