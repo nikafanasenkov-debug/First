@@ -26,17 +26,41 @@ def step(grid):
 # --- 3. Цветная визуализация ---
 def get_rgb(grid):
     rgb = np.zeros((N, N, 3))
-    rgb[:, :] = [0.04, 0.04, 0.08] 
+    rgb[:, :] = [0.04, 0.04, 0.08]
     labeled_array, num_features = ndimage.label(grid, structure=np.ones((3,3)))
     cmap = plt.cm.tab20
     for i in range(1, num_features + 1):
         mask = (labeled_array == i)
         color = cmap((i - 1) % 20)[:3]
-        color = np.clip(np.array(color) * 1.5, 0, 1)
-        rgb[mask] = color
+        rgb[mask] = np.clip(np.array(color) * 1.5, 0, 1)
     return rgb
 
-# --- 4. Функция запуска ---
+# --- 4. RLE-декодер (гарантирует правильные паттерны кораблей) ---
+def rle_to_grid(rle_str):
+    rle = rle_str.strip().replace('!', '')
+    rows = rle.split('$')
+    grid_rows = []
+    for row in rows:
+        decoded = []
+        i = 0
+        while i < len(row):
+            num = ''
+            while i < len(row) and row[i].isdigit():
+                num += row[i]
+                i += 1
+            count = int(num) if num else 1
+            if i < len(row):
+                if row[i] == 'o':
+                    decoded.append('1' * count)
+                elif row[i] == 'b':
+                    decoded.append('0' * count)
+                i += 1
+        grid_rows.append(''.join(decoded))
+    max_w = max(len(r) for r in grid_rows)
+    grid_rows = [r.ljust(max_w, '0') for r in grid_rows]
+    return np.array([[int(c) for c in row] for row in grid_rows], dtype=int)
+
+# --- 5. Функция запуска и сохранения ---
 def run_simulation(initial_grid, title, filename, frames=120):
     print(f"\n>>> Генерация: {title}...")
     print("    (Программа ждет, пока вы закроете окно)\n")
@@ -66,17 +90,31 @@ def run_simulation(initial_grid, title, filename, frames=120):
     print(f"    Сохранено: {filename}")
     print(f"    Воспроизведение... Закройте окно, чтобы продолжить.\n")
     
-    plt.show()
+    # Сбрасываем на начальное состояние, чтобы окно показало старт
+    grid = initial_grid.copy()
+    mat.set_data(get_rgb(grid))
+    
+    def update_disp(frame):
+        nonlocal grid
+        grid = step(grid)
+        mat.set_data(get_rgb(grid))
+        return [mat]
+    
+    ani2 = animation.FuncAnimation(fig, update_disp, frames=frames,
+                                    interval=100, blit=True, repeat=False)
+    plt.show()  # ЖДЕТ закрытия окна
     plt.close(fig)
     print(f"<<< Цикл '{title}' завершен. Переходим к следующему.\n")
 
-# --- 5. Генераторы ---
+# --- 6. Генераторы начальных позиций ---
 
+# ЦИКЛ 1: Рандом
 def make_random():
     grid = np.zeros((N, N))
     grid[50:150, 50:150] = np.random.choice([ON, OFF], size=(100, 100), p=[0.3, 0.7])
     return grid
 
+# ЦИКЛ 2: Неподвижные структуры (Still Lifes)
 def make_still_lifes():
     grid = np.zeros((N, N))
     patterns = {
@@ -85,7 +123,8 @@ def make_still_lifes():
         'Loaf': [(1,0), (2,0), (0,1), (3,1), (1,2), (3,2), (2,3)],
         'Tub': [(1,0), (0,1), (2,1), (1,2)]
     }
-    positions = {'Block': (60, 60), 'Beehive': (140, 60), 'Loaf': (60, 140), 'Tub': (140, 140)}
+    positions = {'Block': (60, 60), 'Beehive': (140, 60), 
+                 'Loaf': (60, 140), 'Tub': (140, 140)}
     for name, (cx, cy) in positions.items():
         coords = patterns[name]
         min_x = min(c[0] for c in coords); max_x = max(c[0] for c in coords)
@@ -96,6 +135,7 @@ def make_still_lifes():
             grid[start_y + dy, start_x + dx] = ON
     return grid
 
+# ЦИКЛ 3: Осцилляторы
 def make_oscillators():
     grid = np.zeros((N, N))
     pulsar_coords = [
@@ -129,46 +169,43 @@ def make_oscillators():
             grid[start_y + dy, start_x + dx] = ON
     return grid
 
-# ЦИКЛ 4: Космические корабли (ТОЧНЫЕ ПАТТЕРНЫ, ВСЕ ЛЕТЯТ ВПРАВО)
+# ЦИКЛ 4: Космические корабли (ИНТЕГРИРОВАНЫ ПРАВИЛЬНЫЕ ПАТТЕРНЫ)
 def make_spaceships():
     grid = np.zeros((N, N))
     
-    # === КООРДИНАТЫ ПАТТЕРНОВ (x=столбец, y=строка) ===
+    # === RLE-паттерны из LifeWiki (проверенные!) ===
+    GLIDER = rle_to_grid('bo$2bo$3o!')                 # 5 клеток, по диагонали
+    LWSS   = rle_to_grid('bo2bo$o4b$o3bo$4o!')         # 9 клеток
+    MWSS   = rle_to_grid('3bo2b$bo3bo$o5b$o4bo$5o!')  # 11 клеток
+    HWSS   = rle_to_grid('3b2o2b$bo4bo$o6b$o5bo$6o!') # 13 клеток
     
-    # LWSS - 9 клеток (летит вправо)
-    lwss = [(1,0), (4,0), (0,1), (0,2), (4,2), (0,3), (1,3), (2,3), (3,3)]
+    # !!! Отражаем горизонтально, чтобы корабли летели ВПРАВО !!!
+    LWSS = np.fliplr(LWSS)
+    MWSS = np.fliplr(MWSS)
+    HWSS = np.fliplr(HWSS)
     
-    # MWSS - 11 клеток (летит вправо)
-    mwss = [(3,0), (1,1), (5,1), (0,2), (0,3), (5,3), (0,4), (1,4), (2,4), (3,4), (4,4)]
-    
-    # HWSS - 13 клеток (летит вправо)
-    hwss = [(3,0), (4,0), (1,1), (6,1), (0,2), (0,3), (6,3), (0,4), (1,4), (2,4), (3,4), (4,4), (5,4)]
-    
-    # Glider - 5 клеток (летит по диагонали вниз-вправо)
-    glider = [(1,0), (2,1), (0,2), (1,2), (2,2)]
-    
-    # !!! ВСЕ ТРИ ГОРИЗОНТАЛЬНЫХ КОРАБЛЯ В ОДНОЙ ЛИНИИ (Y=100) !!!
-    # Расставляем с БОЛЬШИМИ интервалами (40 клеток между ними)
+    # === Размещаем все ТРИ горизонтальных корабля в одной линии (Y=100) ===
     Y = 100
     
-    # LWSS - на x=20
-    for dx, dy in lwss:
-        grid[Y + dy, 20 + dx] = ON
+    # LWSS на x=20
+    h, w = LWSS.shape
+    grid[Y:Y+h, 20:20+w] = LWSS
     
-    # MWSS - на x=70
-    for dx, dy in mwss:
-        grid[Y + dy, 70 + dx] = ON
+    # MWSS на x=70
+    h, w = MWSS.shape
+    grid[Y:Y+h, 70:70+w] = MWSS
     
-    # HWSS - на x=130
-    for dx, dy in hwss:
-        grid[Y + dy, 130 + dx] = ON
+    # HWSS на x=130
+    h, w = HWSS.shape
+    grid[Y:Y+h, 130:130+w] = HWSS
     
-    # Glider - отдельно, летит по диагонали
-    for dx, dy in glider:
-        grid[20 + dy, 20 + dx] = ON
+    # === Глайдер отдельно (летит по диагонали) ===
+    h, w = GLIDER.shape
+    grid[20:20+h, 20:20+w] = GLIDER
     
     return grid
 
+# ЦИКЛ 5: Ружьё Госпера
 def make_gun():
     grid = np.zeros((N, N))
     coordinates = [
@@ -189,17 +226,33 @@ def make_gun():
         grid[y + 10, x + 10] = ON
     return grid
 
-# --- 6. ЗАПУСК ---
+# --- 7. ЗАПУСК ВСЕХ 5 ЦИКЛОВ ПОСЛЕДОВАТЕЛЬНО ---
 if __name__ == "__main__":
     print("=" * 60)
     print("ГЕНЕРАЦИЯ 5 GIF-ФАЙЛОВ")
+    print("После каждого цикла программа ЖДЕТ, пока вы закроете окно,")
+    print("и только потом запускает следующий цикл.")
     print("=" * 60)
     
-    run_simulation(make_random(), "ЦИКЛ 1: РАНДОМ", "cycle_1_random.gif", frames=150)
-    run_simulation(make_still_lifes(), "ЦИКЛ 2: НЕПОДВИЖНЫЕ", "cycle_2_still_lifes.gif", frames=60)
-    run_simulation(make_oscillators(), "ЦИКЛ 3: ОСЦИЛЛЯТОРЫ", "cycle_3_oscillators.gif", frames=100)
-    run_simulation(make_spaceships(), "ЦИКЛ 4: КОСМИЧЕСКИЕ КОРАБЛИ", "cycle_4_spaceships.gif", frames=200)
-    run_simulation(make_gun(), "ЦИКЛ 5: РУЖЬЁ ГОСПЕРА", "cycle_5_gun.gif", frames=200)
+    run_simulation(make_random(), 
+                   "ЦИКЛ 1: РАНДОМ", 
+                   "cycle_1_random.gif", frames=150)
+    
+    run_simulation(make_still_lifes(), 
+                   "ЦИКЛ 2: НЕПОДВИЖНЫЕ (STILL LIFES)", 
+                   "cycle_2_still_lifes.gif", frames=60)
+    
+    run_simulation(make_oscillators(), 
+                   "ЦИКЛ 3: ОСЦИЛЛЯТОРЫ (5 ВИДОВ)", 
+                   "cycle_3_oscillators.gif", frames=100)
+    
+    run_simulation(make_spaceships(), 
+                   "ЦИКЛ 4: КОСМИЧЕСКИЕ КОРАБЛИ", 
+                   "cycle_4_spaceships.gif", frames=150)
+    
+    run_simulation(make_gun(), 
+                   "ЦИКЛ 5: РУЖЬЁ ГОСПЕРА", 
+                   "cycle_5_gun.gif", frames=200)
     
     print("=" * 60)
     print("Все 5 GIF-файлов успешно созданы!")
