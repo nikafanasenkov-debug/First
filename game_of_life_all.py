@@ -7,12 +7,10 @@ import matplotlib.patheffects as pe
 from scipy.signal import convolve2d
 from scipy import ndimage
 
-# --- 1. Базовые настройки ---
 N = 200  
 ON = 1
 OFF = 0
 
-# --- 2. Ядро свёртки и правила игры ---
 kernel = np.array([[1, 1, 1],
                    [1, 0, 1],
                    [1, 1, 1]])
@@ -23,7 +21,6 @@ def step(grid):
     survival = (grid == 1) & ((neighbors == 2) | (neighbors == 3))
     return (birth | survival).astype(int)
 
-# --- 3. Цветная визуализация ---
 def get_rgb(grid):
     rgb = np.zeros((N, N, 3))
     rgb[:, :] = [0.04, 0.04, 0.08]
@@ -35,7 +32,6 @@ def get_rgb(grid):
         rgb[mask] = np.clip(np.array(color) * 1.5, 0, 1)
     return rgb
 
-# --- 4. RLE-декодер (гарантирует правильные паттерны кораблей) ---
 def rle_to_grid(rle_str):
     rle = rle_str.strip().replace('!', '')
     rows = rle.split('$')
@@ -60,7 +56,6 @@ def rle_to_grid(rle_str):
     grid_rows = [r.ljust(max_w, '0') for r in grid_rows]
     return np.array([[int(c) for c in row] for row in grid_rows], dtype=int)
 
-# --- 5. Функция запуска и сохранения ---
 def run_simulation(initial_grid, title, filename, frames=120):
     print(f"\n>>> Генерация: {title}...")
     print("    (Программа ждет, пока вы закроете окно)\n")
@@ -106,15 +101,12 @@ def run_simulation(initial_grid, title, filename, frames=120):
     plt.close(fig)
     print(f"<<< Цикл '{title}' завершен. Переходим к следующему.\n")
 
-# --- 6. Генераторы начальных позиций ---
 
-# ЦИКЛ 1: Рандом
 def make_random():
     grid = np.zeros((N, N))
     grid[50:150, 50:150] = np.random.choice([ON, OFF], size=(100, 100), p=[0.3, 0.7])
     return grid
 
-# ЦИКЛ 2: Неподвижные структуры (Still Lifes)
 def make_still_lifes():
     grid = np.zeros((N, N))
     patterns = {
@@ -135,7 +127,6 @@ def make_still_lifes():
             grid[start_y + dy, start_x + dx] = ON
     return grid
 
-# ЦИКЛ 3: Осцилляторы
 def make_oscillators():
     grid = np.zeros((N, N))
     pulsar_coords = [
@@ -169,22 +160,20 @@ def make_oscillators():
             grid[start_y + dy, start_x + dx] = ON
     return grid
 
-# ЦИКЛ 4: Космические корабли (ИНТЕГРИРОВАНЫ ПРАВИЛЬНЫЕ ПАТТЕРНЫ)
 def make_spaceships():
     grid = np.zeros((N, N))
     
     # === RLE-паттерны из LifeWiki (проверенные!) ===
-    GLIDER = rle_to_grid('bo$2bo$3o!')                 # 5 клеток, по диагонали
-    LWSS   = rle_to_grid('bo2bo$o4b$o3bo$4o!')         # 9 клеток
-    MWSS   = rle_to_grid('3bo2b$bo3bo$o5b$o4bo$5o!')  # 11 клеток
-    HWSS   = rle_to_grid('3b2o2b$bo4bo$o6b$o5bo$6o!') # 13 клеток
+    GLIDER = rle_to_grid('bo$2bo$3o!')              
+    LWSS   = rle_to_grid('bo2bo$o4b$o3bo$4o!')       
+    MWSS   = rle_to_grid('3bo2b$bo3bo$o5b$o4bo$5o!')  
+    HWSS   = rle_to_grid('3b2o2b$bo4bo$o6b$o5bo$6o!') 
     
-    # !!! Отражаем горизонтально, чтобы корабли летели ВПРАВО !!!
+  
     LWSS = np.fliplr(LWSS)
     MWSS = np.fliplr(MWSS)
     HWSS = np.fliplr(HWSS)
     
-    # === Размещаем все ТРИ горизонтальных корабля в одной линии (Y=100) ===
     Y = 100
     
     # LWSS на x=20
@@ -199,13 +188,12 @@ def make_spaceships():
     h, w = HWSS.shape
     grid[Y:Y+h, 130:130+w] = HWSS
     
-    # === Глайдер отдельно (летит по диагонали) ===
+  
     h, w = GLIDER.shape
     grid[20:20+h, 20:20+w] = GLIDER
     
     return grid
 
-# ЦИКЛ 5: Ружьё Госпера
 def make_gun():
     grid = np.zeros((N, N))
     coordinates = [
@@ -226,7 +214,6 @@ def make_gun():
         grid[y + 10, x + 10] = ON
     return grid
 
-# --- 7. ЗАПУСК ВСЕХ 5 ЦИКЛОВ ПОСЛЕДОВАТЕЛЬНО ---
 if __name__ == "__main__":
     print("=" * 60)
     print("ГЕНЕРАЦИЯ 5 GIF-ФАЙЛОВ")
