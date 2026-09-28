@@ -7,12 +7,12 @@ import matplotlib.patheffects as pe
 from scipy.signal import convolve2d
 from scipy import ndimage
 
-# --- 1. Настройки ---
+
 N = 150                
 ON = 255               
 OFF = 0                
 
-# --- 2. Функция добавления ружья Госпера ---
+
 def addGosperGliderGun(grid, offset_x=5, offset_y=5):
     coordinates = [
         (1, 5), (1, 6), (2, 5), (2, 6),          
@@ -31,7 +31,7 @@ def addGosperGliderGun(grid, offset_x=5, offset_y=5):
     for x, y in coordinates:
         grid[y + offset_y, x + offset_x] = ON
 
-# --- 3. Функция добавления УВЕЛИЧЕННОГО отражателя ---
+
 def addReflector(grid, x, y, size=5):
     """
     Добавляет устойчивый отражатель (квадрат size x size).
@@ -39,12 +39,12 @@ def addReflector(grid, x, y, size=5):
     """
     grid[y:y+size, x:x+size] = ON
 
-# --- 4. Инициализация поля ---
+
 grid = np.zeros((N, N))
 addGosperGliderGun(grid, 5, 5)
 
-# !!! ГЛАВНОЕ ИЗМЕНЕНИЕ: Ставим большой отражатель точно на диагональ !!!
-# Планеры летят по линии y = x. Ставим на (60, 60).
+
+
 addReflector(grid, 75, 60, size=5)
 
 # --- 5. Ядро свёртки ---
@@ -52,7 +52,7 @@ kernel = np.array([[1, 1, 1],
                    [1, 0, 1],
                    [1, 1, 1]])
 
-# --- 6. Настройка анимации ---
+
 BG_COLOR = '#0a0a16'      
 GRID_COLOR = '#151530'    
 
@@ -87,7 +87,7 @@ shot_text = ax.text(0.02, 0.05, "ВЫСТРЕЛОВ: 0", transform=ax.transAxes,
 
 cmap = plt.cm.tab20 
 
-# --- 7. Векторизованная функция обновления ---
+
 def update(frame):
     global grid
     grid_bool = grid / 255
@@ -118,7 +118,7 @@ def update(frame):
     
     return [mat, shot_text]
 
-# --- 8. Запуск ---
+
 ani = animation.FuncAnimation(fig, update, interval=40, blit=True, save_count=2000)
 
 plt.show()

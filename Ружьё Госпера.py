@@ -7,12 +7,12 @@ import matplotlib.patheffects as pe
 from scipy.signal import convolve2d
 from scipy import ndimage
 
-# --- 1. Настройки ---
+
 N = 150                
 ON = 255               
 OFF = 0                
 
-# --- 2. Точная функция добавления ружья Госпера ---
+
 def addGosperGliderGun(grid, offset_x=5, offset_y=5):
     coordinates = [
         (1, 5), (1, 6), (2, 5), (2, 6),          
@@ -31,16 +31,16 @@ def addGosperGliderGun(grid, offset_x=5, offset_y=5):
     for x, y in coordinates:
         grid[y + offset_y, x + offset_x] = ON
 
-# --- 3. Инициализация поля ---
+
 grid = np.zeros((N, N))
 addGosperGliderGun(grid)
 
-# --- 4. Ядро свёртки ---
+
 kernel = np.array([[1, 1, 1],
                    [1, 0, 1],
                    [1, 1, 1]])
 
-# --- 5. Настройка анимации ---
+
 BG_COLOR = '#0a0a16'      
 GRID_COLOR = '#151530'    
 
@@ -48,7 +48,7 @@ fig, ax = plt.subplots(figsize=(10, 10))
 fig.patch.set_facecolor(BG_COLOR) 
 ax.set_facecolor(BG_COLOR)        
 
-# Освобождаем место сверху для заголовка
+
 fig.subplots_adjust(top=0.85)
 
 initial_img = np.full((N, N, 3), 0.04) 
@@ -65,7 +65,7 @@ text_obj.set_path_effects([pe.withStroke(linewidth=4, foreground='#0066ff')])
 
 ax.axis('off') 
 
-# Добавляем стильную сетку
+
 for i in range(0, N, 10):
     ax.axhline(i - 0.5, color=GRID_COLOR, linewidth=0.5, alpha=0.5)
     ax.axvline(i - 0.5, color=GRID_COLOR, linewidth=0.5, alpha=0.5)
@@ -78,10 +78,10 @@ shot_text = ax.text(0.02, 0.05, "ВЫСТРЕЛОВ: 0", transform=ax.transAxes,
                     bbox=dict(boxstyle="round,pad=0.4", facecolor='#0a0a16', 
                               edgecolor='#00ffff', linewidth=1, alpha=0.8))
 
-# Выбираем палитру
+
 cmap = plt.cm.tab20 
 
-# --- 8. Векторизованная функция обновления ---
+
 def update(frame):
     global grid
     grid_bool = grid / 255
@@ -94,7 +94,7 @@ def update(frame):
     new_grid_bool = birth | survival
     grid = new_grid_bool.astype(float) * 255
     
-    # --- МАГИЯ ЦВЕТА ---
+   
     labeled_array, num_features = ndimage.label(new_grid_bool, structure=np.ones((3,3)))
     
     rgb_image = np.zeros((N, N, 3))
@@ -108,13 +108,13 @@ def update(frame):
         
     mat.set_data(rgb_image)
     
-    # --- ОБНОВЛЕНИЕ СЧЕТЧИКА ---
+    
     shots = frame // 30
     shot_text.set_text(f"ВЫСТРЕЛОВ: {shots}")
     
     return [mat, shot_text]
 
-# --- 9. Запуск ---
+
 ani = animation.FuncAnimation(fig, update, interval=40, blit=True, save_count=2000)
 
 plt.show()
