@@ -85,7 +85,6 @@ def run_simulation(initial_grid, title, filename, frames=120):
     print(f"    Сохранено: {filename}")
     print(f"    Воспроизведение... Закройте окно, чтобы продолжить.\n")
     
-    # Сбрасываем на начальное состояние, чтобы окно показало старт
     grid = initial_grid.copy()
     mat.set_data(get_rgb(grid))
     
@@ -97,7 +96,7 @@ def run_simulation(initial_grid, title, filename, frames=120):
     
     ani2 = animation.FuncAnimation(fig, update_disp, frames=frames,
                                     interval=100, blit=True, repeat=False)
-    plt.show()  # ЖДЕТ закрытия окна
+    plt.show()
     plt.close(fig)
     print(f"<<< Цикл '{title}' завершен. Переходим к следующему.\n")
 
@@ -163,32 +162,26 @@ def make_oscillators():
 def make_spaceships():
     grid = np.zeros((N, N))
     
-    # === RLE-паттерны из LifeWiki (проверенные!) ===
     GLIDER = rle_to_grid('bo$2bo$3o!')              
     LWSS   = rle_to_grid('bo2bo$o4b$o3bo$4o!')       
     MWSS   = rle_to_grid('3bo2b$bo3bo$o5b$o4bo$5o!')  
     HWSS   = rle_to_grid('3b2o2b$bo4bo$o6b$o5bo$6o!') 
     
-  
     LWSS = np.fliplr(LWSS)
     MWSS = np.fliplr(MWSS)
     HWSS = np.fliplr(HWSS)
     
     Y = 100
     
-    # LWSS на x=20
     h, w = LWSS.shape
     grid[Y:Y+h, 20:20+w] = LWSS
     
-    # MWSS на x=70
     h, w = MWSS.shape
     grid[Y:Y+h, 70:70+w] = MWSS
     
-    # HWSS на x=130
     h, w = HWSS.shape
     grid[Y:Y+h, 130:130+w] = HWSS
     
-  
     h, w = GLIDER.shape
     grid[20:20+h, 20:20+w] = GLIDER
     
